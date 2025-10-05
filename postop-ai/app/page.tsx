@@ -55,7 +55,6 @@ export default function DashboardPage() {
         <nav className="flex flex-wrap gap-3 mb-6">
           <Link href="/inventory" className="px-3 py-2 rounded border hover:bg-gray-50">Inventory</Link>
           <Link href="/orchestrate" className="px-3 py-2 rounded border hover:bg-gray-50">Orchestrate</Link>
-          <Link href="/settings" className="px-3 py-2 rounded border hover:bg-gray-50">Settings</Link>
         </nav>
 
         <section className="grid gap-4 sm:grid-cols-2 mb-6">

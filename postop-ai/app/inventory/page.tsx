@@ -7,7 +7,6 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
-// Small helper for UI
 function Card({ children }: { children: React.ReactNode }) {
   return <div className="border rounded-xl p-4">{children}</div>;
 }
@@ -16,19 +15,16 @@ export default function InventoryPage() {
   const { user } = useUser();
   const [seeding, setSeeding] = useState(false);
 
-  // Queries
   const myAgents = useQuery(
     api.agents.listMine,
     user ? { userId: user.id } : "skip"
   );
   const catalog = useQuery(api.catalog_agents.listCatalogAgents, {});
 
-  // Mutations
   const installFromCatalog = useMutation(api.agents.installFromCatalog);
   const deleteAgent = useMutation(api.agents.deleteAgent);
   const insertCatalogAgent = useMutation(api.catalog_agents.insertCatalogAgent);
 
-  // Demo catalog (only used if catalog is empty)
   const DEMO = useMemo(
     () => [
       {
@@ -152,7 +148,6 @@ export default function InventoryPage() {
           </p>
         </header>
 
-        {/* Quick nav */}
         <nav className="flex gap-3 mb-6">
           <Link href="/" className="px-3 py-2 rounded border hover:bg-gray-50">
             Dashboard
@@ -160,13 +155,9 @@ export default function InventoryPage() {
           <Link href="/orchestrate" className="px-3 py-2 rounded border hover:bg-gray-50">
             Orchestrate
           </Link>
-          <Link href="/settings" className="px-3 py-2 rounded border hover:bg-gray-50">
-            Settings
-          </Link>
         </nav>
 
         <div className="grid gap-6 md:grid-cols-2">
-          {/* My Agents */}
           <Card>
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold">My Agents</h2>
@@ -198,7 +189,6 @@ export default function InventoryPage() {
             )}
           </Card>
 
-          {/* Catalog */}
           <Card>
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-semibold">Catalog</h2>
