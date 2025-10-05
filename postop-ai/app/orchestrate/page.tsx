@@ -2,12 +2,15 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton, useUser } from "@clerk/nextjs";
+import { useUser, SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
-type Step = { agentId: Id<"agents">; inputMapping?: any };
+type Step = {
+  agentId: Id<"agents">;
+  inputMapping?: Record<string, unknown>;
+};
 
 function Skeleton({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse rounded-lg bg-white/5 ${className}`} />;
@@ -38,7 +41,13 @@ function Section({
   );
 }
 
-function Badge({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "ok" | "warn" | "bad" }) {
+function Badge({
+  children,
+  tone = "neutral",
+}: {
+  children: React.ReactNode;
+  tone?: "neutral" | "ok" | "warn" | "bad";
+}) {
   const map: Record<string, string> = {
     neutral: "bg-white/5 text-[var(--muted)]",
     ok: "bg-emerald-500/15 text-emerald-300",
@@ -133,11 +142,12 @@ export default function OrchestratePage() {
     }
     setRunning(true);
     try {
-      const input = inputJson ? JSON.parse(inputJson) : {};
+      const input = inputJson ? JSON.parse(inputJson) as Record<string, unknown> : {};
       await runWorkflow({ userId: user.id, workflowId: selectedWorkflow, input });
-    } catch (e: any) {
-      alert("Run failed: " + e.message);
-    } finally {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      alert("Run failed: " + message);
+  } finally {
       setRunning(false);
     }
   }
