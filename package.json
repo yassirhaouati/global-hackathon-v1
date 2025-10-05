@@ -18,6 +18,8 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/actastudios/global-hackathon-v1"
+  },
+  "dependencies": {
+    "@clerk/nextjs": "^6.33.2"
   }
 }
-
