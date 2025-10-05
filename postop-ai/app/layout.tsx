@@ -23,7 +23,7 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'PostOp AI',
+  title: 'PostOp AI - by Yassir Haouati',
   description: 'AI Agents Orchestration System - by Yassir Haouati',
 }
 
