@@ -1,107 +1,158 @@
 "use client";
 
 import Link from "next/link";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
-import { useUser } from "@clerk/nextjs";
+import { SignedIn, SignedOut, SignInButton, useUser } from "@clerk/nextjs";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 
 function prettyDate(ms?: number) {
   if (!ms) return "-";
-  const d = new Date(ms);
-  return d.toLocaleString();
+  return new Date(ms).toLocaleString();
+}
+
+function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded-lg bg-white/5 ${className}`} />;
+}
+
+function StatCard({
+  title,
+  value,
+  href,
+  cta,
+  loading,
+}: {
+  title: string;
+  value?: number;
+  href: string;
+  cta: string;
+  loading: boolean;
+}) {
+  return (
+    <div className="card p-5">
+      <div className="text-xs uppercase tracking-wide text-[var(--muted)] mb-1">{title}</div>
+      <div className="text-3xl font-semibold">
+        {loading ? <Skeleton className="h-8 w-14" /> : value ?? 0}
+      </div>
+      <Link href={href} className="mt-3 inline-flex items-center gap-1 text-sm btn-ghost">
+        {cta} <span className="opacity-60">→</span>
+      </Link>
+    </div>
+  );
 }
 
 export default function DashboardPage() {
   const { user } = useUser();
 
-  const agents = useQuery(
-    api.agents.listMine,
-    user ? { userId: user.id } : "skip"
-  );
+  const agents = useQuery(api.agents.listMine, user ? { userId: user.id } : "skip");
+  const workflows = useQuery(api.workflows.listWorkflows, user ? { userId: user.id } : "skip");
+  const runs = useQuery(api.runs.listRuns, user ? { userId: user.id } : "skip");
 
-  const workflows = useQuery(
-    api.workflows.listWorkflows,
-    user ? { userId: user.id } : "skip"
-  );
-
-  const runs = useQuery(
-    api.runs.listRuns,
-    user ? { userId: user.id } : "skip"
-  );
-
-  const loading = agents === undefined || workflows === undefined || runs === undefined;
+  const loading =
+    agents === undefined || workflows === undefined || runs === undefined;
 
   return (
-    <main className="p-6 max-w-6xl mx-auto">
+    <main className="container py-8">
+      {/* Signed-out welcome */}
       <SignedOut>
-        <div className="max-w-lg mx-auto mt-16 text-center border rounded-xl p-8">
-          <h1 className="text-2xl font-semibold mb-2">Welcome to your Agent Orchestrator</h1>
-          <p className="text-gray-600 mb-6">
+        <div className="max-w-xl mx-auto text-center card p-10 fade-in">
+          <h1 className="text-3xl font-semibold mb-2">
+            Welcome to <span className="gradient-text">PostOp AI Orchestrator</span>
+          </h1>
+          <p className="text-[var(--muted)] mb-6">
             Sign in to manage agents, build workflows, and run orchestrations.
           </p>
           <SignInButton>
-            <button className="bg-black text-white px-5 py-2 rounded">Sign In</button>
+            <button className="btn btn-primary px-5">Sign In</button>
           </SignInButton>
         </div>
       </SignedOut>
 
+      {/* Main dashboard */}
       <SignedIn>
-        <header className="mb-6">
-          <h1 className="text-2xl font-semibold">Dashboard</h1>
-          <p className="text-gray-600">Quick overview of your agents, workflows, and recent runs.</p>
+        {/* Top bar */}
+        <header className="mb-8">
+          <h1 className="text-3xl font-semibold tracking-tight mb-1">Dashboard</h1>
+          <p className="text-[var(--muted)]">
+            Quick overview of your agents, workflows, and recent runs.
+          </p>
         </header>
 
-        <nav className="flex flex-wrap gap-3 mb-6">
-          <Link href="/inventory" className="px-3 py-2 rounded border hover:bg-gray-50">Inventory</Link>
-          <Link href="/orchestrate" className="px-3 py-2 rounded border hover:bg-gray-50">Orchestrate</Link>
+        {/* Primary nav actions */}
+        <nav className="flex flex-wrap gap-3 mb-8">
+          <Link href="/inventory" className="btn">Inventory</Link>
+          <Link href="/orchestrate" className="btn">Orchestrate</Link>
         </nav>
 
-        <section className="grid gap-4 sm:grid-cols-2 mb-6">
-          <div className="border rounded-xl p-4">
-            <div className="text-sm text-gray-500">Agents</div>
-            <div className="text-2xl font-semibold">{loading ? "…" : agents?.length ?? 0}</div>
-            <Link href="/inventory" className="text-sm text-blue-600 underline mt-1 inline-block">
-              Manage Agents
-            </Link>
-          </div>
-          <div className="border rounded-xl p-4">
-            <div className="text-sm text-gray-500">Workflows</div>
-            <div className="text-2xl font-semibold">{loading ? "…" : workflows?.length ?? 0}</div>
-            <Link href="/orchestrate" className="text-sm text-blue-600 underline mt-1 inline-block">
-              Open Orchestrator
-            </Link>
-          </div>
+        {/* Stats */}
+        <section className="grid gap-5 sm:grid-cols-2 mb-8">
+          <StatCard
+            title="Agents"
+            value={agents?.length}
+            href="/inventory"
+            cta="Manage Agents"
+            loading={loading}
+          />
+          <StatCard
+            title="Workflows"
+            value={workflows?.length}
+            href="/orchestrate"
+            cta="Open Orchestrator"
+            loading={loading}
+          />
         </section>
 
-        <section className="border rounded-xl p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold">Recent Runs</h2>
-            <Link href="/orchestrate" className="text-sm text-blue-600 underline">See all</Link>
+        {/* Recent runs */}
+        <section className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Recent Runs</h2>
+            <Link href="/orchestrate" className="btn btn-ghost text-sm">
+              See all
+            </Link>
           </div>
 
           {loading ? (
-            <div className="text-gray-600">Loading…</div>
+            <div className="space-y-3">
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+              <Skeleton className="h-16" />
+            </div>
           ) : runs && runs.length > 0 ? (
-            <ul className="divide-y">
+            <ul className="space-y-3">
               {runs.slice(0, 3).map((r) => (
-                <li key={r._id} className="py-3 flex items-center justify-between">
-                  <div>
-                    <div className="font-medium">
-                      {r.status === "completed" ? "✅" : r.status === "failed" ? "❌" : "⏳"} Run {r._id.slice(-6)}
+                <li key={r._id} className="surface p-4 rounded-xl hover-lift">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <div className="flex items-center gap-2 font-medium">
+                        <span
+                          className={`pill ${
+                            r.status === "completed"
+                              ? "text-green-400 border-green-500/30"
+                              : r.status === "failed"
+                              ? "text-red-400 border-red-500/30"
+                              : "text-yellow-300 border-yellow-400/30"
+                          }`}
+                        >
+                          {r.status === "completed"
+                            ? "Completed"
+                            : r.status === "failed"
+                            ? "Failed"
+                            : "Pending"}
+                        </span>
+                        <span className="opacity-70">Run {r._id.slice(-6)}</span>
+                      </div>
+                      <div className="text-xs text-[var(--muted)] mt-1">
+                        Started: {prettyDate(r.createdAt)}
+                      </div>
                     </div>
-                    <div className="text-sm text-gray-500">
-                      Started: {prettyDate(r.createdAt)}
-                    </div>
+                    <pre className="max-w-[55%] w-full bg-white/5 border border-[var(--border)] text-xs p-3 rounded-lg overflow-x-auto">
+                      {JSON.stringify(r.output ?? r.input ?? {}, null, 2)}
+                    </pre>
                   </div>
-                  <pre className="bg-gray-50 text-xs p-2 rounded max-w-[55%] overflow-x-auto">
-                    {JSON.stringify(r.output ?? r.input ?? {}, null, 2)}
-                  </pre>
                 </li>
               ))}
             </ul>
           ) : (
-            <div className="text-gray-600">No runs yet. Try creating a workflow in the Orchestrator.</div>
+            <div className="empty">No runs yet. Create a workflow in the Orchestrator.</div>
           )}
         </section>
       </SignedIn>

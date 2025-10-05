@@ -9,13 +9,43 @@ import type { Id } from "@/convex/_generated/dataModel";
 
 type Step = { agentId: Id<"agents">; inputMapping?: any };
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded-lg bg-white/5 ${className}`} />;
+}
+
+function Section({
+  title,
+  subtitle,
+  right,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <section className="border rounded-xl p-4">
-      <h2 className="font-semibold mb-3">{title}</h2>
+    <section className="card p-5">
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <h2 className="text-lg font-semibold">{title}</h2>
+          {subtitle && <p className="text-sm text-[var(--muted)] mt-0.5">{subtitle}</p>}
+        </div>
+        {right}
+      </div>
       {children}
     </section>
   );
+}
+
+function Badge({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "ok" | "warn" | "bad" }) {
+  const map: Record<string, string> = {
+    neutral: "bg-white/5 text-[var(--muted)]",
+    ok: "bg-emerald-500/15 text-emerald-300",
+    warn: "bg-amber-500/15 text-amber-300",
+    bad: "bg-rose-500/15 text-rose-300",
+  };
+  return <span className={`px-2.5 py-1 rounded-full text-xs ${map[tone]}`}>{children}</span>;
 }
 
 export default function OrchestratePage() {
@@ -27,16 +57,15 @@ export default function OrchestratePage() {
     api.orchestrator_agents.listOrchestratorAgents,
     user ? { userId: user.id } : "skip"
   );
-  const workflows = useQuery(
-    api.workflows.listWorkflows,
-    user ? { userId: user.id } : "skip"
-  );
+  const workflows = useQuery(api.workflows.listWorkflows, user ? { userId: user.id } : "skip");
   const runs = useQuery(api.runs.listRuns, user ? { userId: user.id } : "skip");
 
+  // --- Mutations / Actions ---
   const createWorkflow = useMutation(api.workflows.createWorkflow);
   const deleteWorkflow = useMutation(api.workflows.deleteWorkflow);
   const runWorkflow = useAction(api.orchestrator.runWorkflow);
 
+  // --- Local state ---
   const [wfName, setWfName] = useState("");
   const [wfDesc, setWfDesc] = useState("");
   const [selectedAgents, setSelectedAgents] = useState<Step[]>([]);
@@ -45,18 +74,29 @@ export default function OrchestratePage() {
   const [inputJson, setInputJson] = useState<string>('{"text": "Sample incident log text"}');
   const [running, setRunning] = useState(false);
 
+  const loading =
+    agents === undefined || workflows === undefined || orchestrators === undefined || runs === undefined;
+
   const myRuns = useMemo(() => {
     const list = runs ?? [];
-    return selectedWorkflow
-      ? list.filter((r) => r.workflowId === selectedWorkflow).slice(0, 5)
-      : list.slice(0, 5);
+    return selectedWorkflow ? list.filter((r) => r.workflowId === selectedWorkflow).slice(0, 5) : list.slice(0, 5);
   }, [runs, selectedWorkflow]);
 
+  // --- Step helpers ---
   function addAgent(agentId: Id<"agents">) {
     setSelectedAgents((prev) => [...prev, { agentId }]);
   }
   function removeStep(i: number) {
     setSelectedAgents((prev) => prev.filter((_, idx) => idx !== i));
+  }
+  function moveStep(i: number, dir: -1 | 1) {
+    setSelectedAgents((prev) => {
+      const next = [...prev];
+      const j = i + dir;
+      if (j < 0 || j >= next.length) return prev;
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
   }
   function addOrchestrator(id: Id<"orchestrator_agents">) {
     setSelectedOrchs((prev) => [...prev, id]);
@@ -65,6 +105,7 @@ export default function OrchestratePage() {
     setSelectedOrchs((prev) => prev.filter((_, idx) => idx !== i));
   }
 
+  // --- Actions ---
   async function onCreateWorkflow() {
     if (!user) return;
     if (!wfName || selectedAgents.length === 0) {
@@ -106,85 +147,102 @@ export default function OrchestratePage() {
     if (selectedWorkflow === id) setSelectedWorkflow(null);
   }
 
-  const loading =
-    agents === undefined ||
-    workflows === undefined ||
-    orchestrators === undefined ||
-    runs === undefined;
-
   return (
-    <main className="p-6 max-w-6xl mx-auto">
+    <main className="container py-8">
+      {/* Signed out */}
       <SignedOut>
-        <div className="max-w-lg mx-auto mt-16 text-center border rounded-xl p-8">
-          <h1 className="text-2xl font-semibold mb-2">Orchestrate</h1>
-          <p className="text-gray-600 mb-6">Sign in to build and run workflows.</p>
+        <div className="max-w-xl mx-auto text-center card p-10">
+          <h1 className="text-3xl font-semibold mb-2">Orchestrate</h1>
+          <p className="text-[var(--muted)] mb-6">Sign in to build and run workflows.</p>
           <SignInButton>
-            <button className="bg-black text-white px-5 py-2 rounded">Sign In</button>
+            <button className="btn btn-primary px-5">Sign In</button>
           </SignInButton>
         </div>
       </SignedOut>
 
+      {/* Signed in */}
       <SignedIn>
-        <header className="mb-6">
-          <h1 className="text-2xl font-semibold">Orchestrator</h1>
-          <p className="text-gray-600">
-            Build a workflow from your agents, optionally add orchestrator agents, and run it.
+        <header className="mb-8">
+          <h1 className="text-3xl font-semibold tracking-tight mb-1">Orchestrator</h1>
+          <p className="text-[var(--muted)]">
+            Build a workflow from your agents, optionally add adapter agents, and run it.
           </p>
         </header>
 
-        <nav className="flex gap-3 mb-6">
-          <Link href="/" className="px-3 py-2 rounded border hover:bg-gray-50">Dashboard</Link>
-          <Link href="/inventory" className="px-3 py-2 rounded border hover:bg-gray-50">Inventory</Link>
+        <nav className="flex gap-3 mb-8">
+          <Link href="/" className="btn">Dashboard</Link>
+          <Link href="/inventory" className="btn">Inventory</Link>
         </nav>
 
         <div className="grid gap-6 md:grid-cols-3">
+          {/* Builder column */}
           <div className="md:col-span-2 space-y-6">
-            <Section title="Create Workflow">
+            {/* Create workflow */}
+            <Section
+              title="Create Workflow"
+              subtitle="Pick agents as steps, optionally add adapters, then save"
+              right={<Badge tone="neutral">{selectedAgents.length} steps</Badge>}
+            >
               <div className="grid gap-3">
                 <input
                   value={wfName}
                   onChange={(e) => setWfName(e.target.value)}
-                  className="border rounded p-2"
+                  className="input"
                   placeholder="Workflow name"
                 />
                 <input
                   value={wfDesc}
                   onChange={(e) => setWfDesc(e.target.value)}
-                  className="border rounded p-2"
+                  className="input"
                   placeholder="(optional) description"
                 />
 
                 <div>
-                  <div className="text-sm text-gray-600 mb-2">Steps (click agents to add)</div>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {(agents ?? []).map((a) => (
-                      <button
-                        key={a._id}
-                        onClick={() => addAgent(a._id)}
-                        className="text-sm px-3 py-1 border rounded hover:bg-gray-50"
-                      >
-                        + {a.name}
-                      </button>
-                    ))}
-                  </div>
+                  <div className="text-sm text-[var(--muted)] mb-2">Steps (click an agent to add)</div>
+                  {agents === undefined ? (
+                    <div className="flex gap-2">
+                      <Skeleton className="h-9 w-28" />
+                      <Skeleton className="h-9 w-40" />
+                      <Skeleton className="h-9 w-24" />
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {(agents ?? []).map((a) => (
+                        <button
+                          key={a._id}
+                          onClick={() => addAgent(a._id)}
+                          className="btn btn-ghost text-sm"
+                          title={`Add ${a.name}`}
+                        >
+                          + {a.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
                   {selectedAgents.length === 0 ? (
-                    <div className="text-gray-600">No steps yet | add agents above.</div>
+                    <div className="empty">No steps yet — add agents above.</div>
                   ) : (
                     <ol className="space-y-2">
                       {selectedAgents.map((s, i) => {
                         const agent = (agents ?? []).find((a) => a._id === s.agentId);
                         return (
-                          <li key={i} className="flex items-center justify-between border rounded p-2">
-                            <span>
-                              <b>Step {i + 1}:</b> {agent?.name || s.agentId}
-                            </span>
-                            <button
-                              className="text-sm px-3 py-1 border rounded hover:bg-gray-50"
-                              onClick={() => removeStep(i)}
-                            >
-                              Remove
-                            </button>
+                          <li key={i} className="surface rounded-xl p-3 flex items-center justify-between hover-lift">
+                            <div className="flex items-center gap-3">
+                              <Badge>Step {i + 1}</Badge>
+                              <span className="font-medium">{agent?.name || s.agentId}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <button className="btn btn-ghost px-2" onClick={() => moveStep(i, -1)} title="Move up">
+                                ↑
+                              </button>
+                              <button className="btn btn-ghost px-2" onClick={() => moveStep(i, 1)} title="Move down">
+                                ↓
+                              </button>
+                              <button className="btn btn-ghost" onClick={() => removeStep(i)}>
+                                Remove
+                              </button>
+                            </div>
                           </li>
                         );
                       })}
@@ -193,33 +251,39 @@ export default function OrchestratePage() {
                 </div>
 
                 <div>
-                  <div className="text-sm text-gray-600 mb-2">
-                    Orchestrator Agents (optional, click to add per-step adapters)
+                  <div className="text-sm text-[var(--muted)] mb-2">
+                    Adapter Agents (optional) — transform/route data between steps
                   </div>
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {(orchestrators ?? []).map((o) => (
-                      <button
-                        key={o._id}
-                        onClick={() => addOrchestrator(o._id)}
-                        className="text-sm px-3 py-1 border rounded hover:bg-gray-50"
-                      >
-                        + {o.name}
-                      </button>
-                    ))}
-                  </div>
+                  {orchestrators === undefined ? (
+                    <div className="flex gap-2">
+                      <Skeleton className="h-9 w-36" />
+                      <Skeleton className="h-9 w-28" />
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      {(orchestrators ?? []).map((o) => (
+                        <button
+                          key={o._id}
+                          onClick={() => addOrchestrator(o._id)}
+                          className="btn btn-ghost text-sm"
+                        >
+                          + {o.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
                   {selectedOrchs.length > 0 && (
                     <ul className="space-y-2">
                       {selectedOrchs.map((id, i) => {
                         const o = (orchestrators ?? []).find((x) => x._id === id);
                         return (
-                          <li key={i} className="flex items-center justify-between border rounded p-2">
-                            <span>
-                              <b>Adapter {i + 1}:</b> {o?.name || id}
-                            </span>
-                            <button
-                              className="text-sm px-3 py-1 border rounded hover:bg-gray-50"
-                              onClick={() => removeOrchestrator(i)}
-                            >
+                          <li key={i} className="surface rounded-xl p-3 flex items-center justify-between hover-lift">
+                            <div className="flex items-center gap-3">
+                              <Badge tone="neutral">Adapter {i + 1}</Badge>
+                              <span className="font-medium">{o?.name || id}</span>
+                            </div>
+                            <button className="btn btn-ghost" onClick={() => removeOrchestrator(i)}>
                               Remove
                             </button>
                           </li>
@@ -230,29 +294,33 @@ export default function OrchestratePage() {
                 </div>
 
                 <div className="flex gap-2">
-                  <button onClick={onCreateWorkflow} className="bg-black text-white px-4 py-2 rounded">
+                  <button onClick={onCreateWorkflow} className="btn btn-primary">
                     Create Workflow
                   </button>
                 </div>
               </div>
             </Section>
 
-            <Section title="Run Workflow">
+            {/* Run workflow */}
+            <Section title="Run Workflow" subtitle="Pick a workflow, provide input JSON, and execute">
               <div className="grid gap-3">
                 <div>
-                  <div className="text-sm text-gray-600 mb-2">Select a workflow</div>
+                  <div className="text-sm text-[var(--muted)] mb-2">Select a workflow</div>
                   {loading ? (
-                    <div className="text-gray-600">Loading…</div>
+                    <div className="flex gap-2">
+                      <Skeleton className="h-9 w-28" />
+                      <Skeleton className="h-9 w-40" />
+                    </div>
                   ) : (workflows ?? []).length === 0 ? (
-                    <div className="text-gray-600">No workflows yet. Create one above.</div>
+                    <div className="empty">No workflows yet. Create one above.</div>
                   ) : (
                     <div className="flex flex-wrap gap-2">
                       {(workflows ?? []).map((w) => (
                         <button
                           key={w._id}
                           onClick={() => setSelectedWorkflow(w._id)}
-                          className={`text-sm px-3 py-1 border rounded hover:bg-gray-50 ${
-                            selectedWorkflow === w._id ? "bg-gray-100" : ""
+                          className={`btn text-sm ${
+                            selectedWorkflow === w._id ? "btn-primary" : "btn-ghost"
                           }`}
                         >
                           {w.name}
@@ -263,12 +331,20 @@ export default function OrchestratePage() {
                 </div>
 
                 <div>
-                  <div className="text-sm text-gray-600 mb-2">Input JSON</div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm text-[var(--muted)]">Input JSON</div>
+                    <button
+                      className="btn btn-ghost text-xs"
+                      onClick={() => setInputJson('{"text":"Sample incident log text"}')}
+                    >
+                      Reset sample
+                    </button>
+                  </div>
                   <textarea
                     value={inputJson}
                     onChange={(e) => setInputJson(e.target.value)}
-                    rows={5}
-                    className="w-full border rounded p-2 font-mono text-sm"
+                    rows={6}
+                    className="textarea"
                   />
                 </div>
 
@@ -276,15 +352,12 @@ export default function OrchestratePage() {
                   <button
                     onClick={onRunWorkflow}
                     disabled={running || !selectedWorkflow}
-                    className="bg-black text-white px-4 py-2 rounded disabled:opacity-60"
+                    className="btn btn-primary disabled:opacity-60"
                   >
                     {running ? "Running…" : "Run Workflow"}
                   </button>
                   {selectedWorkflow && (
-                    <button
-                      onClick={() => onDeleteWorkflow(selectedWorkflow)}
-                      className="px-4 py-2 rounded border hover:bg-gray-50"
-                    >
+                    <button onClick={() => onDeleteWorkflow(selectedWorkflow)} className="btn">
                       Delete Selected
                     </button>
                   )}
@@ -293,31 +366,37 @@ export default function OrchestratePage() {
             </Section>
           </div>
 
+          {/* Runs column */}
           <div className="space-y-6">
-            <Section title="Recent Runs">
+            <Section title="Recent Runs" subtitle="Latest 5 executions of this or any workflow">
               {runs === undefined ? (
-                <div className="text-gray-600">Loading…</div>
+                <div className="space-y-3">
+                  <Skeleton className="h-20" />
+                  <Skeleton className="h-20" />
+                </div>
               ) : myRuns.length === 0 ? (
-                <div className="text-gray-600">No runs yet.</div>
+                <div className="empty">No runs yet.</div>
               ) : (
                 <ul className="space-y-3">
-                  {myRuns.map((r) => (
-                    <li key={r._id} className="border rounded p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="font-medium">
-                          {r.status === "completed" ? "✅" : r.status === "failed" ? "❌" : "⏳"} Run{" "}
-                          {r._id.slice(-6)}
+                  {myRuns.map((r) => {
+                    const tone: "ok" | "warn" | "bad" | "neutral" =
+                      r.status === "completed" ? "ok" : r.status === "failed" ? "bad" : "neutral";
+                    return (
+                      <li key={r._id} className="surface rounded-xl p-3 hover-lift">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="font-medium">Run {r._id.slice(-6)}</div>
+                          <Badge tone={tone}>{r.status}</Badge>
                         </div>
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-[var(--muted)] mb-2">
                           {new Date(r.createdAt).toLocaleString()}
                         </div>
-                      </div>
-                      <div className="text-xs text-gray-500 mb-2">Output</div>
-                      <pre className="bg-gray-50 text-xs p-2 rounded overflow-x-auto max-h-48">
-                        {JSON.stringify(r.output ?? {}, null, 2)}
-                      </pre>
-                    </li>
-                  ))}
+                        <div className="text-xs text-[var(--muted)] mb-1">Output</div>
+                        <pre className="bg-white/5 rounded-lg p-2 text-xs overflow-x-auto max-h-48">
+                          {JSON.stringify(r.output ?? {}, null, 2)}
+                        </pre>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </Section>

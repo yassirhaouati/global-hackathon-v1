@@ -7,8 +7,83 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import type { Id } from "@/convex/_generated/dataModel";
 
-function Card({ children }: { children: React.ReactNode }) {
-  return <div className="border rounded-xl p-4">{children}</div>;
+function Skeleton({ className = "" }: { className?: string }) {
+  return <div className={`animate-pulse rounded-lg bg-white/5 ${className}`} />;
+}
+
+function Section({
+  title,
+  subtitle,
+  right,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="card p-5">
+      <div className="flex items-start justify-between gap-4 mb-4">
+        <div>
+          <h2 className="text-lg font-semibold">{title}</h2>
+          {subtitle && (
+            <p className="text-sm text-[var(--muted)] mt-0.5">{subtitle}</p>
+          )}
+        </div>
+        {right}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function AgentRow({
+  name,
+  type,
+  onDelete,
+}: {
+  name: string;
+  type: string;
+  onDelete: () => void;
+}) {
+  return (
+    <li className="surface rounded-xl p-3 flex items-center justify-between hover-lift">
+      <div>
+        <div className="font-medium">{name}</div>
+        <div className="text-xs text-[var(--muted)] mt-0.5">{type}</div>
+      </div>
+      <button onClick={onDelete} className="btn btn-ghost text-sm">
+        Delete
+      </button>
+    </li>
+  );
+}
+
+function CatalogRow({
+  name,
+  type,
+  slug,
+  onInstall,
+}: {
+  name: string;
+  type: string;
+  slug: string;
+  onInstall: () => void;
+}) {
+  return (
+    <li className="surface rounded-xl p-3 flex items-center justify-between hover-lift">
+      <div>
+        <div className="font-medium">{name}</div>
+        <div className="text-xs text-[var(--muted)] mt-0.5">
+          {type} · {slug}
+        </div>
+      </div>
+      <button onClick={onInstall} className="btn btn-primary text-sm">
+        Install
+      </button>
+    </li>
+  );
 }
 
 export default function InventoryPage() {
@@ -26,82 +101,21 @@ export default function InventoryPage() {
   const insertCatalogAgent = useMutation(api.catalog_agents.insertCatalogAgent);
 
   const DEMO = useMemo(
-    () => [
-      {
-        slug: "log-parser",
-        name: "Log Parser",
-        type: "prompt",
-        manifest: {
-          inputSchema: { text: "string" },
-          outputSchema: { signals: "any" },
-          prompt:
-            "Extract key metrics, services, and errors as JSON array named signals from:\\n{{text}}",
-        },
+  () =>
+    Array.from({ length: 5 }, (_, i) => ({
+      slug: `demo-agent-${i + 1}`,
+      name: `Agent ${i + 1} (Demo)`,
+      type: "demo",
+      manifest: {
+        inputSchema: { input: "any" },
+        outputSchema: { output: "any" },
+        description: `Demo agent ${i + 1} placeholder | used for showcasing orchestration.`,
+        demoBehavior: `Takes an input and returns a mock output to demonstrate data flow.`,
       },
-      {
-        slug: "anomaly-detector",
-        name: "Anomaly Detector",
-        type: "transform",
-        manifest: {
-          inputSchema: { signals: "any" },
-          outputSchema: { anomalies: "any" },
-          transform: `
-            const a=[]; 
-            const s=input.signals||[]; 
-            for(const x of s){
-              if(x.type==='cpu' && Number(x.value)>90) a.push({name:'High CPU',score:0.8});
-              if(x.type==='error_rate' && Number(x.value)>1) a.push({name:'Elevated Errors',score:0.7});
-              if(x.type==='latency_p95' && Number(x.value)>400) a.push({name:'High Latency',score:0.6});
-            }
-            return { anomalies:a };
-          `,
-        },
-      },
-      {
-        slug: "severity-scorer",
-        name: "Severity Scorer",
-        type: "transform",
-        manifest: {
-          inputSchema: { anomalies: "any" },
-          outputSchema: { severity: "string", rationale: "string" },
-          transform: `
-            const a=input.anomalies||[]; 
-            const max=(a.reduce((m,x)=>Math.max(m,x.score||0),0)); 
-            let sev='P3'; 
-            if(max>=0.8) sev='P1'; else if(max>=0.6) sev='P2'; 
-            return { severity: sev, rationale: \`Top anomaly score \${max}\` };
-          `,
-        },
-      },
-      {
-        slug: "action-planner",
-        name: "Action Planner",
-        type: "prompt",
-        manifest: {
-          inputSchema: { severity: "string", anomalies: "any" },
-          outputSchema: { summary: "string", next_actions: "any" },
-          prompt:
-            "Given severity {{severity}} and anomalies {{anomalies}}, write a 2-sentence incident summary and a JSON array next_actions of 2-3 steps.",
-        },
-      },
-      {
-        slug: "notifier",
-        name: "Notifier (Mock)",
-        type: "http-mock",
-        manifest: {
-          inputSchema: {
-            severity: "string",
-            summary: "string",
-            next_actions: "any",
-          },
-          outputSchema: { posted: "boolean", channel: "string" },
-          url: "https://example.com/mock",
-          method: "POST",
-        },
-      },
-    ],
-    []
-  );
+    })),
+  []
+);
+
 
   async function onSeed() {
     if (seeding) return;
@@ -129,108 +143,108 @@ export default function InventoryPage() {
   }
 
   return (
-    <main className="p-6 max-w-6xl mx-auto">
+    <main className="container py-8">
       <SignedOut>
-        <div className="max-w-lg mx-auto mt-16 text-center border rounded-xl p-8">
-          <h1 className="text-2xl font-semibold mb-2">Inventory</h1>
-          <p className="text-gray-600 mb-6">Sign in to manage your agents.</p>
+        <div className="max-w-xl mx-auto text-center card p-10">
+          <h1 className="text-3xl font-semibold mb-2">Inventory</h1>
+          <p className="text-[var(--muted)] mb-6">
+            Sign in to manage your agents.
+          </p>
           <SignInButton>
-            <button className="bg-black text-white px-5 py-2 rounded">Sign In</button>
+            <button className="btn btn-primary px-5">Sign In</button>
           </SignInButton>
         </div>
       </SignedOut>
 
       <SignedIn>
-        <header className="mb-6">
-          <h1 className="text-2xl font-semibold">Inventory</h1>
-          <p className="text-gray-600">
+        <header className="mb-8">
+          <h1 className="text-3xl font-semibold tracking-tight mb-1">Inventory</h1>
+          <p className="text-[var(--muted)]">
             Manage your installed agents and add new ones from the catalog.
           </p>
         </header>
 
-        <nav className="flex gap-3 mb-6">
-          <Link href="/" className="px-3 py-2 rounded border hover:bg-gray-50">
-            Dashboard
-          </Link>
-          <Link href="/orchestrate" className="px-3 py-2 rounded border hover:bg-gray-50">
-            Orchestrate
-          </Link>
+        <nav className="flex gap-3 mb-8">
+          <Link href="/" className="btn">Dashboard</Link>
+          <Link href="/orchestrate" className="btn">Orchestrate</Link>
         </nav>
 
         <div className="grid gap-6 md:grid-cols-2">
-          <Card>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold">My Agents</h2>
-              <span className="text-sm text-gray-500">{myAgents?.length ?? 0}</span>
-            </div>
+          {/* My agents */}
+          <Section
+            title="My Agents"
+            subtitle="Agents available to your workflows"
+            right={
+              <div className="pill text-sm">
+                {myAgents?.length ?? 0} total
+              </div>
+            }
+          >
             {myAgents === undefined ? (
-              <div className="text-gray-600">Loading…</div>
+              <div className="space-y-3">
+                <Skeleton className="h-14" />
+                <Skeleton className="h-14" />
+                <Skeleton className="h-14" />
+              </div>
             ) : myAgents.length === 0 ? (
-              <div className="text-gray-600">
-                No agents installed yet. Install from the Catalog on the right.
+              <div className="empty">
+                No agents installed yet. Install from the Catalog →
               </div>
             ) : (
-              <ul className="divide-y">
+              <ul className="space-y-3">
                 {myAgents.map((a) => (
-                  <li key={a._id} className="py-3 flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">{a.name}</div>
-                      <div className="text-xs text-gray-500">{a.type}</div>
-                    </div>
-                    <button
-                      onClick={() => onDelete(a._id)}
-                      className="text-sm px-3 py-1 border rounded hover:bg-gray-50"
-                    >
-                      Delete
-                    </button>
-                  </li>
+                  <AgentRow
+                    key={a._id}
+                    name={a.name}
+                    type={a.type}
+                    onDelete={() => onDelete(a._id)}
+                  />
                 ))}
               </ul>
             )}
-          </Card>
+          </Section>
 
-          <Card>
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold">Catalog</h2>
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-500">{catalog?.length ?? 0}</span>
+          {/* Catalog */}
+          <Section
+            title="Catalog"
+            subtitle="Prebuilt agents ready to install"
+            right={
+              <div className="flex items-center gap-3">
+                <div className="pill text-sm">{catalog?.length ?? 0} items</div>
                 <button
                   onClick={onSeed}
                   disabled={seeding}
-                  className="text-sm px-3 py-1 border rounded hover:bg-gray-50"
+                  className="btn btn-ghost text-sm"
                 >
                   {seeding ? "Seeding…" : "Seed Demo"}
                 </button>
               </div>
-            </div>
-
+            }
+          >
             {catalog === undefined ? (
-              <div className="text-gray-600">Loading…</div>
+              <div className="space-y-3">
+                <Skeleton className="h-14" />
+                <Skeleton className="h-14" />
+                <Skeleton className="h-14" />
+              </div>
             ) : catalog.length === 0 ? (
-              <div className="text-gray-600">
+              <div className="empty">
                 Catalog is empty. Click <b>Seed Demo</b> to add sample agents.
               </div>
             ) : (
-              <ul className="divide-y">
+              <ul className="space-y-3">
                 {catalog.map((c) => (
-                  <li key={c._id} className="py-3 flex items-center justify-between">
-                    <div>
-                      <div className="font-medium">{c.name}</div>
-                      <div className="text-xs text-gray-500">
-                        {c.type} · {c.slug}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => onInstall(c._id)}
-                      className="text-sm px-3 py-1 border rounded hover:bg-gray-50"
-                    >
-                      Install
-                    </button>
-                  </li>
+                  <CatalogRow
+                    key={c._id}
+                    name={c.name}
+                    type={c.type}
+                    slug={c.slug}
+                    onInstall={() => onInstall(c._id)}
+                  />
                 ))}
               </ul>
             )}
-          </Card>
+          </Section>
         </div>
       </SignedIn>
     </main>
